@@ -12,9 +12,20 @@ def main():
     fm.FormatEx(c_wchar_p('F:\\'), FMIFS_HARDDISK, c_wchar_p('FAT32'),
     c_wchar_p('hello'), True, c_int(32678), FMT_CB_FUNC(myFmtCallback))
     
+    '''
+    test_format = "format F: /Q /V:test"
+    print("running command: " + test_format)
+    FMT_CB_FUNC = WINFUNCTYPE(c_int, c_int, c_int, c_void_p)
+    FMIFS_UNKNOWN = 0x00
+    fm.FormatEx(c_wchar_p('F:\\'), FMIFS_UNKNOWN, c_wchar_p('FAT32'),
+    c_wchar_p('helllollo'), True, c_int(0), FMT_CB_FUNC(myFmtCallback))
+    #32678
+    '''
+    
+    
 
 def myFmtCallback(command, modifier, arg):
-    print(command)
+    print(command,modifier,arg)
     return 1	# TRUE
 
     
