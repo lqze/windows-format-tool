@@ -1,8 +1,7 @@
 import os, shutil, wmi, win32gui
 from win32com.shell import shell, shellcon
-from ctypes import *
 
-def copytree(src, dst, symalinks=False, ignore=None):
+def copytree(src, dst, symlinks=False, ignore=None):
     #copytree recursively copies source directory src to
     #destination directory dst
     for item in os.listdir(src):
@@ -12,20 +11,16 @@ def copytree(src, dst, symalinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
-            
+
 def get_drives():
     #get_drives builds and returns a list of internal and external volumes  
     drives = []
     c = wmi.WMI()
-    for d in c.Win32_LogicalDisk():
+    for d in c.Win32_LogicalDisk(): #TODO add check for compact disk drive/DVD
         if d.Caption != "C:": # skip system drive
-            if d.Size:        # skip compact disks                
-                #drivestr = '(' + d.Caption + "/" + ') ' + d.VolumeName
-                #infostr = str(int(d.Size) // (1024*1024*1024)) + 'GB   (' + d.FileSystem + ')'
-                infostr = "{0:3<3}  {1:} {2:4>4}   {3:4>4}".format(d.Caption+'/', d.VolumeName, str(int(d.Size) // (1024*1024*1024))+'GB', d.FileSystem)
-                
+            if d.Size:        # skip compact disks                                
+                infostr = "{0:<3} {1:15}  {2:>6} {3:>4}".format(d.Caption+'/', d.VolumeName, str(int(d.Size) // (1024*1024*1024))+'GB', d.FileSystem)
                 drives.append(infostr)
-                #drives.append((drivestr, infostr))
     del(c)
     return drives
        
