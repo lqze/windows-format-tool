@@ -1,6 +1,6 @@
 // Fat32 formatter version 1.05
 // (c) Tom Thornhill 2007,2008,2009. Original Author.
-// This software is covered by the GPL. 
+// This software is covered by the GPL.
 // By using this tool, you agree to absolve Ridgecrop of an liabilities for lost data.
 // Please backup any data you value before using this tool.
 
@@ -11,7 +11,7 @@
 #include <windows.h>
 #include <winioctl.h>  // From the Win32 SDK \Mstools\Include, or Visual Studio.Net
 
-typedef unsigned char BYTE; 
+typedef unsigned char BYTE;
 typedef unsigned short WORD;
 //typedef unsigned int DWORD;
 
@@ -139,13 +139,13 @@ DWORD get_volume_id ( )
 
     hi = s.wMinute + ( s.wHour << 8 );
     hi += s.wYear;
-   
+
     d = lo + (hi << 16);
     return(d);
 }
 
 
-typedef struct 
+typedef struct
     {
     int sectors_per_cluster;        // can be zero for default or 1,2,4,8,16,32 or 64
     }
@@ -156,12 +156,12 @@ void die ( char * error )
     // Retrieve the system error message for the last-error code
 
     LPVOID lpMsgBuf;
-    DWORD dw = GetLastError(); 
+    DWORD dw = GetLastError();
 
 	if ( dw )
 		{
 		FormatMessage(
-			FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+			FORMAT_MESSAGE_ALLOCATE_BUFFER |
 			FORMAT_MESSAGE_FROM_SYSTEM |
 			FORMAT_MESSAGE_IGNORE_INSERTS,
 			NULL,
@@ -172,22 +172,22 @@ void die ( char * error )
 
 		// Display the error message and exit the process
 
-		printf ("%s\nGetLastError()=%d: %s\n", error, dw, lpMsgBuf );	
+		printf ("%s\nGetLastError()=%d: %s\n", error, dw, lpMsgBuf );
 		}
 	else
 		{
-		printf ("%s\n", error );	
+		printf ("%s\n", error );
 		}
 
     LocalFree(lpMsgBuf);
- 
+
 	exit(0);
 
 }
 
 /*
 This is the Microsoft calculation from FATGEN
-    
+
     DWORD RootDirSectors = 0;
     DWORD TmpVal1, TmpVal2, FATSz;
 
@@ -207,7 +207,7 @@ DWORD get_fat_size_sectors ( DWORD DskSize, DWORD ReservedSecCnt, DWORD SecPerCl
     ULONGLONG   FatElementSize = 4;
     ULONGLONG   FatSz;
 
-    // This is based on 
+    // This is based on
     // http://hjem.get2net.dk/rune_moeller_barnkob/filesystems/fat.html
     // I've made the obvious changes for FAT32
     Numerator = FatElementSize * ( DskSize - ReservedSecCnt );
@@ -223,7 +223,7 @@ void seek_to_sect( HANDLE hDevice, DWORD Sector, DWORD BytesPerSect )
 {
 	LONGLONG Offset;
 	LONG HiOffset;
-    
+
     Offset = Sector * BytesPerSect ;
     HiOffset = (LONG) (Offset>>32);
     SetFilePointer ( hDevice, (LONG) Offset , &HiOffset , FILE_BEGIN );
@@ -269,20 +269,20 @@ void zero_sectors ( HANDLE hDevice, DWORD Sector, DWORD BytesPerSect, DWORD NumS
     {
         if ( NumSects > BurstSize )
             WriteSize = BurstSize;
-        else 
+        else
             WriteSize = NumSects;
 
-        ret=WriteFile ( hDevice, pZeroSect, WriteSize*BytesPerSect, &dwWritten, NULL );   
+        ret=WriteFile ( hDevice, pZeroSect, WriteSize*BytesPerSect, &dwWritten, NULL );
         if ( !ret )
-            die ( "Failed to write" );  
-        
+            die ( "Failed to write" );
+
         NumSects -= WriteSize;
     }
 
     QueryPerformanceCounter( &End );
     Ticks.QuadPart = End.QuadPart - Start.QuadPart;
     fTime = (double) ( Ticks.QuadPart ) / Frequency.QuadPart;
-    
+
 
     fBytesTotal = (double) qBytesTotal;
     printf ( "Wrote %I64d bytes in %.2f seconds, %.2f Megabytes/sec\n", qBytesTotal, fTime, fBytesTotal/(fTime*1024.0*1024.0) );
@@ -303,19 +303,19 @@ BYTE get_sectors_per_cluster ( LONGLONG DiskSizeBytes, DWORD BytesPerSect )
     // 512 MB to 8,191 MB 4 KB
     if ( DiskSizeMB > 512 )
         ret = get_spc( 4, BytesPerSect );  // ret = 0x8;
-        
-    // 8,192 MB to 16,383 MB 8 KB 
+
+    // 8,192 MB to 16,383 MB 8 KB
     if ( DiskSizeMB > 8192 )
         ret = get_spc( 8, BytesPerSect ); // ret = 0x10;
 
-    // 16,384 MB to 32,767 MB 16 KB 
+    // 16,384 MB to 32,767 MB 16 KB
     if ( DiskSizeMB > 16384 )
         ret = get_spc( 16, BytesPerSect ); // ret = 0x20;
 
     // Larger than 32,768 MB 32 KB
     if ( DiskSizeMB > 32768 )
         ret = get_spc( 32, BytesPerSect );  // ret = 0x40;
-    
+
     return( ret );
 
 }
@@ -339,9 +339,9 @@ int format_volume ( char vol, format_params* params )
     DWORD NumFATs = 2;
     DWORD BackupBootSect = 6;
     DWORD VolumeId=0; // calculated before format
-    
+
     // // Calculated later
-    DWORD FatSize=0; 
+    DWORD FatSize=0;
     DWORD BytesPerSect=0;
     DWORD SectorsPerCluster=0;
     DWORD TotalSectors=0;
@@ -352,9 +352,9 @@ int format_volume ( char vol, format_params* params )
     // structures to be written to the disk
     FAT_BOOTSECTOR32 *pFAT32BootSect;
     FAT_FSINFO *pFAT32FsInfo;
-    
+
     DWORD *pFirstSectOfFat;
-    
+
     BYTE VolId[12] = "NO NAME    ";
 
     // Debug temp vars
@@ -362,31 +362,31 @@ int format_volume ( char vol, format_params* params )
     char c;
 
     DriveDevicePath[4] = vol;
-    
+
     VolumeId = get_volume_id( );
 
-    
+
     c='Y';
     if ( toupper(c) != 'Y' )
     {
         exit(1);
     }
-    
+
 
 
     // open the drive
     hDevice = CreateFile (
-        DriveDevicePath,  
+        DriveDevicePath,
         GENERIC_READ | GENERIC_WRITE,
         0 ,
-        NULL, 
-        OPEN_EXISTING, 
+        NULL,
+        OPEN_EXISTING,
         FILE_FLAG_NO_BUFFERING,
         NULL);
 
     if ( hDevice ==  INVALID_HANDLE_VALUE )
         die( "Failed to open device - close any files before formatting and make sure you have Admin rights when using fat32format\n Are you SURE you're formatting the RIGHT DRIVE!!!" );
- 
+
 	bRet= DeviceIoControl(
 	  (HANDLE) hDevice,              // handle to device
 	  FSCTL_ALLOW_EXTENDED_DASD_IO,  // dwIoControlCode
@@ -401,7 +401,7 @@ int format_volume ( char vol, format_params* params )
 	if ( !bRet )
         printf ( "Failed to allow extended DASD on device" );
 	else
-		printf ( "FSCTL_ALLOW_EXTENDED_DASD_IO OK\n" ); 
+		printf ( "FSCTL_ALLOW_EXTENDED_DASD_IO OK\n" );
 
     // lock it
     bRet = DeviceIoControl( hDevice, FSCTL_LOCK_VOLUME, NULL, 0, NULL, 0, &cbRet, NULL );
@@ -418,7 +418,7 @@ int format_volume ( char vol, format_params* params )
     if ( !bRet )
         die( "Failed to get device geometry" );
 
-    bRet = DeviceIoControl ( hDevice, 
+    bRet = DeviceIoControl ( hDevice,
         IOCTL_DISK_GET_PARTITION_INFO,
         NULL, 0, &piDrive, sizeof(piDrive),
         &cbRet, NULL);
@@ -426,12 +426,12 @@ int format_volume ( char vol, format_params* params )
 	if ( !bRet )
     {
 		printf ( "IOCTL_DISK_GET_PARTITION_INFO failed, trying IOCTL_DISK_GET_PARTITION_INFO_EX\n" );
-		bRet = DeviceIoControl ( hDevice, 
+		bRet = DeviceIoControl ( hDevice,
 			IOCTL_DISK_GET_PARTITION_INFO_EX,
 			NULL, 0, &xpiDrive, sizeof(xpiDrive),
 			&cbRet, NULL);
-  
-			
+
+
 		if (!bRet)
 			die( "Failed to get partition info (both regular and _ex)" );
 
@@ -439,14 +439,14 @@ int format_volume ( char vol, format_params* params )
 		piDrive.StartingOffset.QuadPart = xpiDrive.StartingOffset.QuadPart;
 		piDrive.PartitionLength.QuadPart = xpiDrive.PartitionLength.QuadPart;
 		piDrive.HiddenSectors = (DWORD) (xpiDrive.StartingOffset.QuadPart / dgDrive.BytesPerSector);
-		
+
 
 		bGPTMode = ( xpiDrive.PartitionStyle == PARTITION_STYLE_MBR ) ? 0 : 1;
 		printf ( "IOCTL_DISK_GET_PARTITION_INFO_EX ok, GPTMode=%d\n", bGPTMode );
 
 	}
 
-    // Only support hard disks at the moment 
+    // Only support hard disks at the moment
     //if ( dgDrive.BytesPerSector != 512 )
     //{
     //    die ( "This version of fat32format only supports hard disks with 512 bytes per sector.\n" );
@@ -475,7 +475,7 @@ int format_volume ( char vol, format_params* params )
 
     pFAT32BootSect = (FAT_BOOTSECTOR32*) VirtualAlloc ( NULL, BytesPerSect, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );
     pFAT32FsInfo = (FAT_FSINFO*) VirtualAlloc( NULL, BytesPerSect, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );
-    
+
     pFirstSectOfFat = (DWORD*) VirtualAlloc( NULL, BytesPerSect, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );
 
     if ( !pFAT32BootSect || !pFAT32FsInfo || !pFirstSectOfFat )
@@ -487,7 +487,7 @@ int format_volume ( char vol, format_params* params )
     pFAT32BootSect->sJmpBoot[2]=0x90;
     strcpy( pFAT32BootSect->sOEMName, "MSWIN4.1" );
     pFAT32BootSect->wBytsPerSec = (WORD) BytesPerSect;
-    
+
     if ( params->sectors_per_cluster )
         SectorsPerCluster = params->sectors_per_cluster;
     else
@@ -505,9 +505,9 @@ int format_volume ( char vol, format_params* params )
     pFAT32BootSect->dHiddSec = (DWORD) piDrive.HiddenSectors;
     TotalSectors = (DWORD)  (piDrive.PartitionLength.QuadPart/dgDrive.BytesPerSector);
     pFAT32BootSect->dTotSec32 = TotalSectors;
-    
+
     FatSize = get_fat_size_sectors ( pFAT32BootSect->dTotSec32, pFAT32BootSect->wRsvdSecCnt, pFAT32BootSect->bSecPerClus, pFAT32BootSect->bNumFATs, BytesPerSect ); ;
-    
+
     pFAT32BootSect->dFATSz32 = FatSize;
     pFAT32BootSect->wExtFlags = 0;
     pFAT32BootSect->wFSVer = 0;
@@ -517,18 +517,18 @@ int format_volume ( char vol, format_params* params )
     pFAT32BootSect->bDrvNum = 0x80;
     pFAT32BootSect->Reserved1 = 0;
     pFAT32BootSect->bBootSig = 0x29;
-    
+
     pFAT32BootSect->dBS_VolID = VolumeId;
     memcpy ( pFAT32BootSect->sVolLab, VolId, 11 );
     memcpy( pFAT32BootSect->sBS_FilSysType, "FAT32   ", 8 );
     ((BYTE*)pFAT32BootSect)[510] = 0x55;
     ((BYTE*)pFAT32BootSect)[511] = 0xaa;
 
-	/* FATGEN103.DOC says "NOTE: Many FAT documents mistakenly say that this 0xAA55 signature occupies the "last 2 bytes of 
-	the boot sector". This statement is correct if - and only if - BPB_BytsPerSec is 512. If BPB_BytsPerSec is greater than 
-	512, the offsets of these signature bytes do not change (although it is perfectly OK for the last two bytes at the end 
-	of the boot sector to also contain this signature)." 
-	
+	/* FATGEN103.DOC says "NOTE: Many FAT documents mistakenly say that this 0xAA55 signature occupies the "last 2 bytes of
+	the boot sector". This statement is correct if - and only if - BPB_BytsPerSec is 512. If BPB_BytsPerSec is greater than
+	512, the offsets of these signature bytes do not change (although it is perfectly OK for the last two bytes at the end
+	of the boot sector to also contain this signature)."
+
 	Windows seems to only check the bytes at offsets 510 and 511. Other OSs might check the ones at the end of the sector,
 	so we'll put them there too.
 	*/
@@ -552,7 +552,7 @@ int format_volume ( char vol, format_params* params )
 
     // Write boot sector, fats
     // Sector 0 Boot Sector
-    // Sector 1 FSInfo 
+    // Sector 1 FSInfo
     // Sector 2 More boot code - we write zeros here
     // Sector 3 unused
     // Sector 4 unused
@@ -566,10 +566,10 @@ int format_volume ( char vol, format_params* params )
     // FATn  ReservedSectCount to ReservedSectCount + FatSize
     // RootDir - allocated to cluster2
 
-    UserAreaSize = TotalSectors - ReservedSectCount - (NumFATs*FatSize);    
+    UserAreaSize = TotalSectors - ReservedSectCount - (NumFATs*FatSize);
 	ClusterCount = UserAreaSize/SectorsPerCluster;
 
-    // Sanity check for a cluster count of >2^28, since the upper 4 bits of the cluster values in 
+    // Sanity check for a cluster count of >2^28, since the upper 4 bits of the cluster values in
     // the FAT are reserved.
     if (  ClusterCount > 0x0FFFFFFF )
         {
@@ -583,7 +583,7 @@ int format_volume ( char vol, format_params* params )
 		}
 
 	// Sanity check, make sure the fat is big enough
-    // Convert the cluster count into a Fat sector count, and check the fat size value we calculated 
+    // Convert the cluster count into a Fat sector count, and check the fat size value we calculated
     // earlier is OK.
     FatNeeded = ClusterCount * 4;
     FatNeeded += (BytesPerSect-1);
@@ -601,16 +601,16 @@ int format_volume ( char vol, format_params* params )
     printf ( "%d Reserved Sectors, %d Sectors per FAT, %d fats\n", ReservedSectCount, FatSize, NumFATs );
 
     printf ( "%d Total clusters\n", ClusterCount );
-    
+
     // fix up the FSInfo sector
     pFAT32FsInfo->dFree_Count = (UserAreaSize/SectorsPerCluster)-1;
     pFAT32FsInfo->dNxt_Free = 3; // clusters 0-1 resered, we used cluster 2 for the root dir
 
     printf ( "%d Free Clusters\n", pFAT32FsInfo->dFree_Count );
     // Work out the Cluster count
-    
 
-    
+
+
     printf ( "Formatting drive %c:...\n",vol  );
 
     // Once zero_sectors has run, any data on the drive is basically lost....
@@ -635,39 +635,39 @@ int format_volume ( char vol, format_params* params )
         write_sect ( hDevice, SectorStart, BytesPerSect, pFirstSectOfFat, 1 );
         }
 
-    // The filesystem recogniser in Windows XP doesn't use the partition type - in can be 
-    // set to pretty much anything other Os's like Dos (still useful for Norton Ghost!) and Windows ME might, 
-    // so we could fix it here 
+    // The filesystem recogniser in Windows XP doesn't use the partition type - in can be
+    // set to pretty much anything other Os's like Dos (still useful for Norton Ghost!) and Windows ME might,
+    // so we could fix it here
     // On the other hand, I'm not sure that exposing big partitions to Windows ME/98 is a very good idea
-    // There are a couple of issues here - 
-    // 1) WinME/98 doesn't know about 48bit LBA, so IDE drives bigger than 137GB will cause it 
-    //    problems. Rather than refuse to mount them, it uses 28bit LBA which wraps 
+    // There are a couple of issues here -
+    // 1) WinME/98 doesn't know about 48bit LBA, so IDE drives bigger than 137GB will cause it
+    //    problems. Rather than refuse to mount them, it uses 28bit LBA which wraps
     //    around, so writing to files above the 137GB boundary will erase the FAT and root dirs.
     // 2) Win98 and WinME have 16 bit scandisk tools, which you need to disable, assuming you
-    //    can get third party support for 48bit LBA, or use a USB external case, most of which 
+    //    can get third party support for 48bit LBA, or use a USB external case, most of which
     //    will let you use a 48bit LBA drive.
     //    see http://www.48bitlba.com/win98.htm for instructions
 
 	// If we have a GPT disk, don't mess with the partition type
 	if ( !bGPTMode )
 		{
-		spiDrive.PartitionType = 0x0c; // FAT32 LBA. 
-		bRet = DeviceIoControl ( hDevice, 
+		spiDrive.PartitionType = 0x0c; // FAT32 LBA.
+		bRet = DeviceIoControl ( hDevice,
 			IOCTL_DISK_SET_PARTITION_INFO,
 			&spiDrive, sizeof(spiDrive),
-			NULL, 0, 
+			NULL, 0,
 			&cbRet, NULL);
 
 		if ( !bRet )
 			{
 			// This happens because the drive is a Super Floppy
 			// i.e. with no partition table. Disk.sys creates a PARTITION_INFORMATION
-			// record spanning the whole disk and then fails requests to set the 
-			// partition info since it's not actually stored on disk. 
-			// So only complain if there really is a partition table to set      
+			// record spanning the whole disk and then fails requests to set the
+			// partition info since it's not actually stored on disk.
+			// So only complain if there really is a partition table to set
 			if ( piDrive.HiddenSectors  )
 				die( "Failed to set parition info" );
-			}    
+			}
 		}
 
     bRet = DeviceIoControl( hDevice, FSCTL_DISMOUNT_VOLUME, NULL, 0, NULL, 0, &cbRet, NULL );
@@ -734,8 +734,8 @@ int main(int argc, char* argv[])
                   (p.sectors_per_cluster != 8) &&  // 4K
                   (p.sectors_per_cluster != 16) &&  // 8K
                   (p.sectors_per_cluster != 32) &&  // 16K
-                  (p.sectors_per_cluster != 64) &&  // 32K 
-                  (p.sectors_per_cluster != 128)    // 64K ( Microsoft say don't use 64K or bigger);               
+                  (p.sectors_per_cluster != 64) &&  // 32K
+                  (p.sectors_per_cluster != 128)    // 64K ( Microsoft say don't use 64K or bigger);
 				  )
                     {
                     printf ( "Ignoring bad cluster size %d\n", p.sectors_per_cluster );
@@ -749,7 +749,7 @@ int main(int argc, char* argv[])
 			usage();
 			break;
         default:
-            printf ( "Ignoring bad flag '-%c'\n", argv[i][1] ); 
+            printf ( "Ignoring bad flag '-%c'\n", argv[i][1] );
 			usage();
             break;
         }
@@ -767,4 +767,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
