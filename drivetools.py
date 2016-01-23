@@ -50,7 +50,7 @@ def choose_firmware_folder():
 def format_disk(drive):
     #format_disk runs fat32format.exe as a new process and returns its standard output
     #as a string
-    p = subprocess.Popen('fat32format.exe ' + drive,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    p = subprocess.Popen('fat32format.exe -c32' + drive,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     output_fd1, output_fd2 = p.communicate()
     return output_fd1.decode()
     
