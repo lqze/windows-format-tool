@@ -27,7 +27,7 @@ def get_drives():
     for d in c:
         if d.Caption != "C:":       # skip system drive
             # skip optical disks if DriveType is equal to 5
-            if not d.Size or d.DriveType != 5:
+            if d.Size and d.DriveType != 5:
                 infostr = "{0:<3} {1:15}  {2:>6} {3:>4}".format(d.Caption+'/',
                                                                 d.VolumeName,
                                     str(int(d.Size) // (1024*1024*1024))+'GB',
@@ -60,7 +60,7 @@ def choose_firmware_folder():
     -c32 sets the allocation unit size to 32K by default
 '''
 def format_disk(drive):
-    p = subprocess.Popen('fat32format.exe -c32' + drive,stdout=subprocess.PIPE,
+    p = subprocess.Popen('fat32format.exe -c64 ' + drive,stdout=subprocess.PIPE,
                                                         stderr=subprocess.PIPE)
     output_fd1, output_fd2 = p.communicate()
     return output_fd1.decode()
