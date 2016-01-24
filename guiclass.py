@@ -7,9 +7,9 @@ class MainApp(Frame):
     def __init__(self, parent, *args, **kwargs):
         Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
-        self.initialize()
+        self.initialize_window()
 
-    def initialize(self):
+    def initialize_window(self):
         #create and setup all the UI widgets
         self.frame = self.create_frame()
         self.chkbox = self.create_checkbox(self.frame).toggle()
@@ -19,9 +19,9 @@ class MainApp(Frame):
         self.drive_menu = self.select_drive_menu(self.frame)
         self.firmwarebox, self.logbox = self.create_txt_boxes(self.frame)
 
-    def create_frame(self):
+    def create_frame(self, w=300, h=420):
         root.title("Auto BlackBox")
-        frame = Frame(root, width=300, height=420)
+        frame = Frame(root, width=w, height=h)
         frame.pack()
 
         return frame
@@ -33,7 +33,8 @@ class MainApp(Frame):
         l2 = Label(frame, text="")
         l2.pack(side="top")
         l2.place(relx=0.48, rely=0.05, anchor=NW)
-        bind_obj.bind("<Enter>", lambda e: l2.configure(text="Refresh drive list"))
+        bind_obj.bind("<Enter>", lambda e: l2.configure(text="Refresh drive "+
+                                                                      "list"))
         bind_obj.bind("<Leave>", lambda e: l2.configure(text=""))
 
     def create_checkbox(self, frame):
@@ -44,7 +45,7 @@ class MainApp(Frame):
         C1.place(relx=0.1, rely=0.34, anchor=NW)
         return C1
 
-    def start_format(self, drive, firmware_folder):
+    def format_disk(self, drive, firmware_folder):
         output = drivetools.format_disk(drive)
         for line in output:
             self.logbox.insert(INSERT, line)
@@ -53,32 +54,41 @@ class MainApp(Frame):
     def copy_folder(self, drive, firmware_folder):
         try:
             self.logbox.insert(INSERT, "Copying folder...\n")
-            drivetools.copytree(firmware_folder, drive + '\\')
-            self.logbox.insert(INSERT, 'Successfully copied {} to \
-                                location {}\\'.format(firmware_folder, drive))
+            drivetools.copy_tree(firmware_folder, drive + '\\')
+            self.logbox.insert(INSERT, ("Successfully copied {} to " +
+                                "location {}\\").format(firmware_folder, drive))
         except Exception as e:
             self.logbox.insert(INSERT, "Error copying file. Reason:\n" + str(e))
         print('\a')
 
+    def start_operation(self):
+        firmware_str = ''.join(self.firmwarebox.get("1.0", END).split('\n'))   
+        copy_folder_yes = True
+        continue_op = True
+        if not firmware_str:
+            b = tkinter.messagebox.askyesno("",
+            "No Folder Selected. Continue formatting without copying a folder?")
+            if b == True:
+                continue_op = True
+                copy_folder_yes = False
+            else:
+                continue_op = False     
+        if continue_op == True:
+            currentDrive = self.drive_menu.get()[0:2]
+            is_format = tkinter.messagebox.askyesno("Format Disk?" ,
+                        ("Are you sure you wish to format volume {:}\\ ? " +
+                        "\nAll data will be erased. This action is " +
+                        "irreversible.").format(currentDrive))
+            if is_format:
+                    self.logbox.delete(1.0, END)
+                    self.format_disk(currentDrive, firmware_str)
+                    if copy_folder_yes == True:
+                        self.copy_folder(currentDrive, firmware_str)
+
     def btn_start_callback(self):
         self.drive_menu = self.select_drive_menu(self.frame)
         self.btn_start.config(state=DISABLED)
-        firmware_str = ''.join(self.firmwarebox.get("1.0", END).split('\n'))
-        is_folder = True
-        if not firmware_str:
-            is_folder = tkinter.messagebox.askyesno("""No Folder Selected.
-                            Continue formatting without copying a folder?""")
-        else:
-            currentDrive = self.drive_menu.get()[0:2]
-            is_format = tkinter.messagebox.askyesno("Format Disk?" ,
-                            """Are you sure you wish to format volume {:}\\ ?
-                            \nAll data will be erased. This action is
-                                        irreversible.""".format(currentDrive))
-            if b:
-                self.logbox.delete(1.0, END)
-                self.start_format(currentDrive, firmware_str)
-                if is_folder:
-                    self.copy_folder(drive, firmware_str)
+        self.start_operation()
         self.btn_start.config(state=NORMAL)
 
     def btn_choose_callback(self):
