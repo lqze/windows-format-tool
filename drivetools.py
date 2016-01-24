@@ -1,18 +1,21 @@
-import os, subprocess, shutil, wmi, win32gui
+import os, subprocess, wmi
 from win32com.shell import shell, shellcon
+from win32gui import GetDesktopWindow
+from shutil import copytree
+
 '''
     copytree recursively copies the source directory src and
-    all of its subdirectories to destination directory dst
+    all of its contents to destination directory dst
     shutil: NOTE: On Windows, file owners, ACLs and
     alternate data streams are not copied
     c.f. https://docs.python.org/3/library/shutil.html
 '''
-def copytree(src, dst, symlinks=False, ignore=None):
+def copy_tree(src, dst, symlinks=False, ignore=None):
     for item in os.listdir(src):
         s = os.path.join(src, item)
         d = os.path.join(dst, item)
         if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
+            copytree(s, d, symlinks, ignore)
 
 '''
     get_drives builds and returns a list of internal / external volumes
@@ -31,18 +34,19 @@ def get_drives():
                 infostr = "{0:<3} {1:15}  {2:>6} {3:>4}".format(d.Caption+'/',
                                                                 d.VolumeName,
                                     str(int(d.Size) // (1024*1024*1024))+'GB',
-                                                                d.FileSystem)
+                                                              d.FileSystem)
                 drives.append(infostr)
     return drives
 
 '''
-    choose_firmware_folder opens up an interactive file explorer menu
-    enabling the user to browse and select the firmware folder
+    choose_firmware_folder opens up an interactive interface to the
+    native win32 GUI API enabling the user to browse and select a
+    folder location in the filesystem
 '''
 def choose_firmware_folder():
     desktop_pidl = shell.SHGetFolderLocation(0, shellcon.CSIDL_DESKTOP, 0, 0)
     pidl, display_name, image_list = shell.SHBrowseForFolder(
-    win32gui.GetDesktopWindow(),
+    GetDesktopWindow(),
     desktop_pidl,
     "Choose a firmware folder", 0, None, None
     )
@@ -57,7 +61,8 @@ def choose_firmware_folder():
 '''
     format_disk runs fat32format.exe as a new process and returns its
     standard output as a string.
-    -c32 sets the allocation unit size to 32K by default
+    -c64 specifies 64 sectors per cluster with an allocation unit size (cluster size)
+    at 32K
 '''
 def format_disk(drive):
     p = subprocess.Popen('fat32format.exe -c64 ' + drive,stdout=subprocess.PIPE,
